@@ -1,63 +1,67 @@
 import os
 import datetime
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 
-# --- CONFIGURACIÓN MONGODB ---
+# --- CONEXIÓN ---
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://ANDRES_VANEGAS:CF32fUhOhrj70dY5@cluster0.dtureen.mongodb.net/?appName=Cluster0")
 client = MongoClient(MONGO_URI)
 db = client['NestleDB']
-puntos_col = db['Adminidtrativo']
 
-# --- DICCIONARIO DE USUARIOS (LOGUEO) ---
-# Clave: Cédula, Valor: Nombre del colaborador
+# --- VALIDACIÓN DE COLECCIÓN ---
+nombre_coleccion = 'Adminidtrativo'
+
+if nombre_coleccion not in db.list_collection_names():
+    print(f"⚠️ La colección '{nombre_coleccion}' no existe. Creándola...")
+    db.create_collection(nombre_coleccion)
+    # Opcional: Crear un índice único para la cédula si no quieres registros duplicados
+    db[nombre_coleccion].create_index([("cedula", 1)], unique=False) 
+    print("✅ Colección creada con éxito.")
+
+puntos_col = db[nombre_coleccion]
+
+# --- DICCIONARIO DE LOGUEO ---
 usuarios_autorizados = {
     "12345678": "Andres Vanegas",
-    "87654321": "Maria Lopez",
-    "10203040": "Carlos Perez"
+    "98765432": "Operador Nestle"
 }
 
-def iniciar_sesion():
-    print("--- SISTEMA DE REGISTRO ADMINISTRATIVO ---")
-    cedula = input("Ingrese su número de cédula: ")
+def flujo_registro():
+    cedula = input("Ingrese su cédula para loguearse: ")
     
     if cedula in usuarios_autorizados:
-        print(f"\nBienvenido(a), {usuarios_autorizados[cedula]}.")
-        return cedula
+        nombre_usuario = usuarios_autorizados[cedula]
+        print(f"\nAcceso concedido: {nombre_usuario}")
+        
+        print("\n" + "!"*30)
+        print("📸 REQUERIMIENTO DE FOTO:")
+        print("🤳 Debe ser tipo SELFIE.")
+        print("🖥️  Frente al PC.")
+        print("👕 El UNIFORME debe ser visible y la imagen clara.")
+        print("!"*30)
+        
+        foto = input("\n[SISTEMA] Cargue la foto (ruta o nombre de archivo): ")
+        actividad = input("¿Qué actividad realizó?: ")
+        resumen = input("Resumen de lo hecho: ")
+
+        # Crear el documento
+        registro = {
+            "cedula": cedula,
+            "nombre": nombre_usuario,
+            "fecha": datetime.datetime.now(),
+            "foto_entrada": foto,
+            "actividad": actividad,
+            "resumen": resumen,
+            "estado_foto": "Validada por usuario"
+        }
+
+        # Inserción
+        try:
+            puntos_col.insert_one(registro)
+            print("\n✔️ Registro guardado correctamente en la base de datos.")
+        except Exception as e:
+            print(f"\n❌ Error al insertar: {e}")
     else:
-        print("Cédula no autorizada.")
-        return None
+        print("❌ Error: Cédula no registrada en el sistema.")
 
-def crear_registro(cedula):
-    print("\n--- REQUISITO DE FOTO ---")
-    print("⚠️  IMPORTANTE: La foto debe ser:")
-    print("👉 Frente al PC.")
-    print("👉 Tipo selfie.")
-    print("👉 Donde se vea claramente el uniforme.")
-    
-    # En un entorno real, aquí se usaría una librería de cámara o carga de archivos.
-    # Para este ejemplo, simulamos la ruta del archivo/URL.
-    foto_entrada = input("\nIngrese el nombre del archivo o URL de la foto: ")
-    
-    actividad = input("¿Qué se hizo hoy? (Actividad): ")
-    resumen = input("Proporcione un resumen detallado de lo realizado: ")
-    
-    # Estructura del documento para MongoDB
-    nuevo_registro = {
-        "cedula": cedula,
-        "nombre": usuarios_autorizados[cedula],
-        "fecha": datetime.datetime.now(), # Fecha y hora actual
-        "foto_entrada": foto_entrada,
-        "actividad": actividad,
-        "resumen_laboral": resumen
-    }
-    
-    try:
-        resultado = puntos_col.insert_one(nuevo_registro)
-        print(f"\n✅ Registro creado exitosamente. ID: {resultado.inserted_id}")
-    except Exception as e:
-        print(f"❌ Error al guardar en base de datos: {e}")
-
-# --- FLUJO PRINCIPAL ---
-usuario_id = iniciar_sesion()
-if usuario_id:
-    crear_registro(usuario_id)
+# Ejecutar
+flujo_registro()
