@@ -1,4 +1,5 @@
 flask
+flask-session
 pymongo
 dnspython
 gunicorn
